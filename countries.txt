@@ -1,0 +1,61 @@
+RU - Russia
+DE - Germany
+TR - Turkey
+FR - France
+GB - United Kingdom
+IT - Italy
+ES - Spain
+UA - Ukraine
+PL - Poland
+RO - Romania
+NL - Netherlands
+KZ - Kazakhstan
+GR - Greece
+PT - Portugal
+CZ - Czech Republic
+BE - Belgium
+HU - Hungary
+BY - Belarus
+RS - Serbia
+SE - Sweden
+AZ - Azerbaijan
+AT - Austria
+BG - Bulgaria
+CH - Switzerland
+SK - Slovakia
+DK - Denmark
+FI - Finland
+NO - Norway
+GE - Georgia
+HR - Croatia
+IE - Ireland
+MD - Moldova
+BA - Bosnia and Herzegovina
+LT - Lithuania
+AM - Armenia
+AL - Albania
+LV - Latvia
+MK - Macedonia
+SI - Slovenia
+EE - Estonia
+CY - Cyprus
+ME - Montenegro
+LU - Luxembourg
+MT - Malta
+IS - Iceland
+AD - Andorra
+LI - Liechtenstein
+MC - Monaco
+SM - San Marino
+VA - Vatican City
+CY - Cyprus
+EG - Egypt
+IR - Iran
+IQ - Iraq
+IL - Israel
+JO - Jordan
+LB - Lebanon
+OM - Oman
+PS - Palestinian territories
+SA - Saudi Arabia
+YE - Yemen
