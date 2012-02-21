@@ -1,9 +1,8 @@
 import compat.Platform
-import java.io.FileWriter
+import java.io.{FileOutputStream, OutputStreamWriter, FileWriter}
 import java.lang.Exception
 import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.{Random, Date}
+import java.util.Random
 import xml.{Elem, XML}
 
 case class Author(id: Long, name: String, organization: Option[String], interests: Seq[String], homepage: Option[String], coauthors: Set[Author])
@@ -12,13 +11,14 @@ object AcademicData {
   val AuthorRegex = """(?s)<a href=['"](http://academic\.research\.microsoft\.com/Author/)(\d+?)['"]>(.+?)</a>""".r
   val random = new Random(Platform.currentTime)
   var version = 5
+  var authorsIds = Set.empty[Long]
 
   def getXML(host: String, path: String, query: String) = {
     val requestUrl = new URI("http", host, path, query, null).toURL
     println("fetching: " + requestUrl)
 
     def trick(): Elem = {
-      val timeout = math.abs(random.nextInt()) % 3000
+      val timeout = math.abs(random.nextInt()) % 1000
       println("--> Sleep for " + timeout + "ms")
       Thread.sleep(timeout)
 
@@ -44,6 +44,7 @@ object AcademicData {
     // NOTE: An author Rss at academic.research.microsoft.com doesn't contain separate fields for organization,
     // interests and homepage. All these fields are in CDATA. Additional RegEx parsing is required.
 
+    print((if (fetchCoauthors) "Author " else "Coauthor "))
     val xml = getXML("academic.research.microsoft.com", "/Rss/" + id, null)
 
     val Organization = """(?s)<p>([\w\d\s]+?)<br/></p>""".r
@@ -67,10 +68,10 @@ object AcademicData {
       if (it.hasNext) {
         val InterestsAndHomepage(interestOrHomepage) = it.next
         if (buffer.equals("")) transform(it, interests, interestOrHomepage)
-        else transform(it, interests :+ buffer, interestOrHomepage)
+        else transform(it, interests :+ buffer.replace("&#38;", "&"), interestOrHomepage)
       } else {
         if (buffer.startsWith("""http://""")) (interests, Some(buffer))
-        else (interests :+ buffer, None)
+        else (interests :+ buffer.replace("&#38;", "&"), None)
       }
     }
     val (interests, homepage) = transform(InterestsAndHomepage findAllIn authorDescription.text, Seq.empty[String], "")
@@ -87,7 +88,9 @@ object AcademicData {
           })
           ids ++ authorsIds
         })
-        coauthorsIds.map(id => fetchAuthor(id, false))
+        val coauths = (coauthorsIds -- authorsIds).map(id => fetchAuthor(id, false))
+        authorsIds = authorsIds ++ coauthorsIds
+        coauths
       } else Set.empty[Author]
 
     /*
@@ -115,10 +118,30 @@ object AcademicData {
     //XML.save("test.xml", xml, "UTF8", true)
   }
 
+  def appendData(author: Author, priority: Int) = {
+    val (org, country, isOur) = author.organization match {
+      case Some(x) => Bing.getData(x) match {
+        case Some(i) => (x, i.countryRegion, (if (i.isEME) "YES" else "NO"))
+        case None => (x, "Not found on the map", "???")
+      }
+      case None => ("Unavailable on MS site", "", "NO")
+    }
+    val hp = author.homepage match {
+      case Some(x) => x
+      case None => ""
+    }
+    val interests = author.interests.mkString(" - ")
+    val output = "%d;%s;%d;%s;%s;%s;%s;%s".format(author.id, author.name, priority, org, country, hp, interests, isOur)
+
+    val fileWriter = new OutputStreamWriter(new FileOutputStream("report.csv", true), "UTF-8")
+    fileWriter.write(output.toString + "\n")
+    fileWriter.close
+  }
+
   def getData(query: String) = {
     val xml = getXML("academic.research.microsoft.com", "/Rss/", "query=" + query + "&searchtype=0")
     val publications = xml \\ "item"
-    val authorsIds: Set[Long] =
+    val authsIds =
       publications.foldLeft(Set.empty[Long])(
         (ids, publication) => {
           val description = publication \\ "description"
@@ -131,50 +154,19 @@ object AcademicData {
         }
       )
 
+    authorsIds ++= authsIds
 
-    authorsIds.foreach(id => {
-      val author = fetchAuthor(id, false)
-      /*
-      val output =
-        <p>
-          {author.id + " " + author.name}<ul>
-          {for (coauthor <- author.coauthors) yield {
+    // TODO: MOVE TO FORMATTER
+    var processed = 0
+    authsIds.foreach(id => {
+      val author = fetchAuthor(id, true)
+      appendData(author, 1)
+      author.coauthors.foreach(auth => appendData(auth, 2))
 
-            <li>
-              {coauthor.id + " " + coauthor.name}
-            </li>
-          }}
-        </ul>
-        </p>
-        */
-      val output =
-        <p>
-          <a href={"http://academic.research.microsoft.com/Author/" + author.id}>
-            go-to-ms
-          </a>
-          <a href={author.homepage match {
-            case Some(x) => x
-            case None => "no_homepage"
-          }}>
-            {author.name}
-          </a>{"[Location: " + (author.organization match {
-          case Some(x) => x + ", " + (Bing.getData(x) match {
-            case Some(r) => r.countryRegion
-            case None => "NOT FOUND"
-          })
-          case None => "NONE"
-        }) + "] " + "[Interests: " + author.interests.mkString(" | ") + "]"}
-        </p>
-      println(output.toString)
-      val fileWriter = new FileWriter("report.html", true)
-      fileWriter.write(output.toString + "\n")
-      fileWriter.close
+      processed += 1
+      println("--> Data added. " + processed + " of " + authsIds.size + " is processed.")
     })
-    //println(authorsIds)
-    //fetchAuthor(20757032, true)
-    //fetchAuthor(12737437)
-    //fetchAuthor(55621649)
-    //println(publications.length)
-  }
 
+    //println(authorsIds)
+  }
 }

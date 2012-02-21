@@ -1,17 +1,12 @@
 import io.Source
+import java.io.FileWriter
 
 object Main {
-  val countries = {
-    val lines = for (line <- Source.fromFile("countries.txt").getLines)
-    yield (line.split(" - ")(1))
-    lines.toSet
-  }
-
   def bingDataTest() = {
-    //val place = "Moscow State University"
-    val place = "Maaaakro Royal Swedish Academy of Sciences"
+    val place = "Moscow State University"
+    //val place = "University of Southampton"
     Bing.getData(place) match {
-      case Some(x) => println(x.countryRegion + " | " + countries.contains(x.countryRegion))
+      case Some(x) => println(x.countryRegion + " | " + x.isEME)
       case None => println("NO DATA")
     }
   }
@@ -22,6 +17,7 @@ object Main {
 
   def main(args: Array[String]) = {
     //println(countries)
+    //bingDataTest()
     academDataTest()
   }
 }
