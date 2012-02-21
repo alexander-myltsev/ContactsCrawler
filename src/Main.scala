@@ -1,5 +1,7 @@
+import compat.Platform
 import io.Source
 import java.io.FileWriter
+import java.util.Random
 
 object Main {
   def bingDataTest() = {

@@ -53,7 +53,7 @@ object Bing {
       val locations = resourceSet \\ "Location"
       val locOpt = locations.find(l => countries.contains((l \\ "CountryRegion").text))
       locOpt match {
-        case None => throw new Exception("Countries doesn't contain location.")
+        case None => throw new Exception("Countries don't contain location")
         case Some(x) =>
           new BingResponse(statusCode, statusDescription, (x \\ "AdminDistrict").text,
             (x \\ "CountryRegion").text, true)
