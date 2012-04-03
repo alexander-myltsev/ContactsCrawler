@@ -1,3 +1,5 @@
+package fetcher
+
 import io.Source
 import java.io.FileWriter
 import java.net.URI
@@ -66,17 +68,25 @@ object Bing {
   def getData(place: String) = {
     val bingKey = """AkwBTtVf8sI-lfyIFfZ-7FSQoxKT_qwkM9xPmCrEq73FUrEOQB2tK-4RUNknDPUj"""
     // NOTE: http://msdn.microsoft.com/en-us/library/ff701714.aspx - BingMap REST API
-    val url = new URI("http", "dev.virtualearth.net", "/REST/v1/Locations/-/-/-/" + place, "o=xml&key=" + bingKey, null).toURL
-    val conn = url.openConnection
-    val xml = XML.load(conn.getInputStream)
-    try {
-      val response = Bing.responseFromXML(xml, countries)
-      Some(response)
-    } catch {
-      case ex: Exception =>
-        ex.printStackTrace()
-        dump(place, ex.getMessage, url.toString, xml)
-        None
-    }
+    val xml =
+      try {
+        XmlDownloader.getXML("dev.virtualearth.net", "/REST/v1/Locations/-/-/-/" + place, "o=xml&key=" + bingKey)
+      } catch {
+        case ex: Exception =>
+          ex.printStackTrace()
+          null
+      }
+    if (xml == null) None
+    else
+      try {
+        val response = Bing.responseFromXML(xml, countries)
+        Some(response)
+      } catch {
+        case ex: Exception =>
+          ex.printStackTrace()
+          val url = new URI("http", "dev.virtualearth.net", "/REST/v1/Locations/-/-/-/" + place, "o=xml&key=" + bingKey, null).toURL
+          dump(place, ex.getMessage, url.toString, xml)
+          None
+      }
   }
 }

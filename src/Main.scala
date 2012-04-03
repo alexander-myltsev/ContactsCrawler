@@ -1,7 +1,7 @@
-import compat.Platform
+package fetcher
+
 import io.Source
-import java.io.FileWriter
-import java.util.Random
+import java.io.{File, FileWriter}
 
 object Main {
   def bingDataTest() = {
@@ -17,9 +17,14 @@ object Main {
     AcademicData.getData("gromacs year>=2007")
   }
 
-  def main(args: Array[String]) = {
+  def main(args: Array[String]): Unit = {
     //println(countries)
     //bingDataTest()
-    academDataTest()
+    //academDataTest()
+
+    new File("dumps").mkdir
+    val query = Source.fromFile("query.txt").getLines.next
+    println("Query: " + query)
+    AcademicData.getData(query)
   }
 }
