@@ -3,6 +3,7 @@ DE - Germany
 TR - Turkey
 FR - France
 GB - United Kingdom
+GB - UK
 IT - Italy
 ES - Spain
 UA - Ukraine

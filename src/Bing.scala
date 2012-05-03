@@ -29,9 +29,20 @@ case class BingResponse(respStatus: BingResponseStatus.typ, statusCode: Int, sta
 object Bing {
   private val bingKey = """AkwBTtVf8sI-lfyIFfZ-7FSQoxKT_qwkM9xPmCrEq73FUrEOQB2tK-4RUNknDPUj"""
   val countries = {
-    val lines = for (line <- Source.fromFile("countries.txt").getLines)
-    yield (line.split(" - ")(1))
+    val lines =
+      for (line <- Source.fromFile("countries.txt").getLines)
+        yield (line.split(" - ")(1))
     lines.toSet
+  }
+
+  def isEME(address: String): Boolean = {
+    val tokens = address.split("""[.\s,;]+""")
+    println("\t" + address)
+    //println("\t" + tokens.mkString("{", " | ", "}"))
+    //println(tokens.toSet.intersect(countries))
+    val isNotEME = tokens.toSet.intersect(countries).isEmpty
+    println("\tisEME: " + !isNotEME)
+    !isNotEME
   }
 
   def dump(place: String, msg: String, url: String, node: xml.Node) = {
