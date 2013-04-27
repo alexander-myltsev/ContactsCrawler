@@ -27,21 +27,22 @@ case class BingResponse(respStatus: BingResponseStatus.typ, statusCode: Int, sta
 }
 
 object Bing {
+
   private val bingKey = """AkwBTtVf8sI-lfyIFfZ-7FSQoxKT_qwkM9xPmCrEq73FUrEOQB2tK-4RUNknDPUj"""
   val countries = {
     val lines =
       for (line <- Source.fromFile("countries.txt").getLines)
-        yield (line.split(" - ")(1))
+      yield (line.split(" - ")(1))
     lines.toSet
   }
 
   def isEME(address: String): Boolean = {
-    val tokens = address.split("""[.\s,;]+""")
-    println("\t" + address)
+    val tokens = address.split( """[.\s,;]+""")
+    //println("\t" + address)
     //println("\t" + tokens.mkString("{", " | ", "}"))
     //println(tokens.toSet.intersect(countries))
     val isNotEME = tokens.toSet.intersect(countries).isEmpty
-    println("\tisEME: " + !isNotEME)
+    //println("\tisEME: " + !isNotEME)
     !isNotEME
   }
 
@@ -112,5 +113,19 @@ object Bing {
       dump(place, response.respStatus.toString, url.toString, xml)
     }
     response
+  }
+}
+
+// ----------------------------
+
+object BingSearch {
+  private val bingKey = """01754BCF2600EA7AB1FBC111B9EAB4F7386B7831"""
+
+  def getData(query: String): List[URI] = {
+    val xml = XmlDownloader.getXML("api.bing.net", "/xml.aspx",
+      "AppId=%s&Version=2.2&Market=en-US&Query=%s&Sources=web&web.count=3&xmltype=elementbased".format(bingKey, query))
+    //val k = (xml \\ "WebResult" \ "Url").map(x => x.text)
+    //println(k.mkString("\n"))
+    (xml \\ "WebResult" \ "Url").map(x => new URI(x.text)).toList
   }
 }

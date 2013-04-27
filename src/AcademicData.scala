@@ -27,18 +27,18 @@ object AcademicData {
       }
     }
 
-
     // TODO: реализовать сопоставление организаций каждому человеку. Фильтровать по стране организации. Сделать поиск домашней страницы
+    case class Affiliation(id: String, name: String)
     val affiliations = articleHtml
       .select("li.affiliation")
       .toArray(Array[Element]())
       .map(organizationElem => {
       val id = organizationElem.select("sup").text
       val name = organizationElem.children.select("p").text
-      (id, name)
+      Affiliation(id, name)
     })
 
-    val correspondence = {
+    val correspondenceOpt = {
       val elem = articleHtml.select("p#correspondence")
       if (elem.size == 1) {
         elem.select("sup").remove
@@ -53,24 +53,28 @@ object AcademicData {
       }
     }
 
+    case class Author(name: String, affilationIds: Array[String]) {
+      override def toString() = "Author(" + name + ", " + affilationIds.mkString("{", ", ", "}") + ")"
+    }
+
     val authors = articleHtml
       .select("ol#authors > li")
       .toArray(Array[Element]())
       .map(authElem => {
-      val orgIds = {
+      val affIds = {
         if (authElem.children.size == 1) {
           val orgs = authElem.children.get(0).text.split(",")
           authElem.children.remove
           orgs
         } else if (authElem.children.size == 0) {
-          Array[String]()
+          Array("")
         } else {
           throw new Exception("unexpected authElem.children.size")
         }
       }
 
-      val author = authElem.text.replace(",", "")
-      (author, orgIds)
+      val authName = authElem.text.replace(",", "")
+      Author(authName, affIds)
     })
 
     val emails = articleHtml
@@ -78,72 +82,78 @@ object AcademicData {
       .toArray(Array[Element]())
       .map(e => e.text.replace(",", ""))
 
-    /*
-    val debugInfoWriter = new OutputStreamWriter(new FileOutputStream("debug.txt", true), "UTF-8")
-    debugInfoWriter.write("----------------------------------------------------------\n")
-    debugInfoWriter.write(index + ": " + articleURL + "\n")
-    debugInfoWriter.write("\taffiliations:" + affiliations.map(aff => aff._1 + " --=> " + aff._2).mkString("\n\t\t", "\n\t\t", "\n"))
-    debugInfoWriter.write("\tcorrespondence: " + correspondence + "\n")
-    debugInfoWriter.write("\tauthors:" + authors.map({
-      case (auth, orgIds) => auth + " - " + orgIds.mkString("{", ", ", "}")
-    }).mkString("\n\t\t", "\n\t\t", "\n"))
-    debugInfoWriter.write("\temails: " + emails.mkString("{", " | ", "}") + "\n")
-    debugInfoWriter.close
-    */
+    println("\tauthors:\n\t\t" + authors.mkString("\n\t\t"))
+    println("\taffilations:\n\t\t" + affiliations.mkString("\n\t\t"))
 
-    val reportWriter = new OutputStreamWriter(new FileOutputStream("report.csv", true), "UTF-8")
-    correspondence match {
+    //val reportWriter = new OutputStreamWriter(new FileOutputStream("report.csv", true), "UTF-8")
+    // Process correspondence
+    println("\tProcessing correspondence: " + correspondenceOpt)
+    println("\temails: " + emails.mkString(" | "))
+    correspondenceOpt match {
       case Some(correspondence) =>
         val isEME = Bing.isEME(correspondence)
+        println("\tisEME: " + isEME)
         emails.foreach(email => {
-          //reportWriter.write(articleURL + "\t")
-          //reportWriter.write((if (isEME) "EME\t" else "NOT EME\t"))
-          //reportWriter.write(correspondence + "\t")
-          //reportWriter.write(email + "\n")
-          appendData(articleURL, Some(isEME), correspondence, email)
+          appendCorrespondenceData(articleURL, Some(isEME), correspondence, email)
         })
       case None =>
         if (emails.isEmpty) {
-          //reportWriter.write("NO CORRESPONDENCE\n") // EME field
-          appendData(articleURL, None, null, null)
+          appendCorrespondenceData(articleURL, None, null, null)
         } else {
           emails.foreach(email => {
             val author = authors.find({
-              case (auth, _) => email.startsWith(auth)
+              case Author(name, _) => email.startsWith(name)
             })
             author match {
-              case Some((author, orgs)) =>
-                /*
-                if (affiliations.size == 1) {
-                  if (affiliations(0)._1 != author)
-                  val isEme = Bing.isEME(affiliations(0))
-                  reportWriter.write((if (isEME) "EME\t" else "NOT EME\t"))
-                  reportWriter.write(affiliations(0)._2 + "\t")
-                  reportWriter.write(email + "\n")
-                }
-                */
-                val affiliation = affiliations.find({
-                  case (id, aff) => orgs.contains(id)
+              case Some(Author(author, orgs)) =>
+                val affiliationOpt = affiliations.find({
+                  case Affiliation(id, aff) => orgs.contains(id)
                 })
-                if (affiliation.isDefined) {
-                  val isEME = Bing.isEME(affiliation.get._2)
-                  //reportWriter.write(articleURL + "\t")
-                  //reportWriter.write((if (isEME) "EME\t" else "NOT EME\t"))
-                  //reportWriter.write(affiliation.get._2 + "\t")
-                  //reportWriter.write(email + "\n")
-                  appendData(articleURL, Some(isEME), affiliation.get._2, email)
-                } else {
-                  //throw new Exception("affiliation.isEmpty for " + articleURL)
-                  appendData(articleURL, None, "NO AFFILIATION", email)
+                affiliationOpt match {
+                  case Some(affiliation) =>
+                    val isEME = Bing.isEME(affiliation.name)
+                    appendCorrespondenceData(articleURL, Some(isEME), affiliation.name, email)
+                  case None =>
+                    appendCorrespondenceData(articleURL, None, "NO AFFILIATION", email)
                 }
               case None => ()
             }
           })
         }
     }
+
+    // Authors homepages feature:
+    authors.foreach(author => {
+      val affiliationsEME = author.affilationIds.foldLeft(List[Affiliation]())({
+        case (res, affId) =>
+          affiliations.find(_.id == affId) match {
+            case Some(x) => if (Bing.isEME(x.name)) x :: res else res
+            case None => res
+          }
+      })
+      affiliationsEME.foreach(affEme => {
+        val possibleHomepages = BingSearch.getData("\"" + author.name + "\" homepage " + affEme.name)
+        //println("Response: " + resp)
+        val reportWriter = new OutputStreamWriter(new FileOutputStream("report.csv", true), "UTF-8")
+        reportWriter.write(articleURL + "\t")
+        reportWriter.write("EME\t")
+        reportWriter.write(affEme.name + "\t")
+        reportWriter.write(author.name + "\t")
+        possibleHomepages.foreach(posshp => {
+          reportWriter.write(posshp.toString + "\t")
+        })
+        reportWriter.write("\n")
+        reportWriter.close
+      })
+      //println("========================")
+      //println("\t" + author.name + " affiliationsEME:\n\t\t" + affiliationsEME.mkString("\n\t\t"))
+      //println("========================")
+    })
+
+    println("--------------------")
   }
 
-  private def appendData(articleURL: String, isEme: Option[Boolean], affiliation: String, email: String) = {
+  private def appendCorrespondenceData(articleURL: String, isEme: Option[Boolean], affiliation: String, email: String) = {
     val reportWriter = new OutputStreamWriter(new FileOutputStream("report.csv", true), "UTF-8")
     reportWriter.write(articleURL + "\t")
     isEme match {
@@ -157,6 +167,7 @@ object AcademicData {
   }
 
   def getData(queryStr: String) = {
+    //fetchAuthor(4, "http://onlinelibrary.wiley.com/doi/10.1002/pssr.201105241/abstract")
     //fetchAuthor(1, "http://onlinelibrary.wiley.com/doi/10.1111/j.2042-7158.2012.01492.x/abstract")
     //fetchAuthor(1, "http://onlinelibrary.wiley.com/doi/10.1002/jmr.977/abstract")
     //fetchAuthor(1, "http://onlinelibrary.wiley.com/doi/10.1002/wcms.89/abstract")

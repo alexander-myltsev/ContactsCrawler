@@ -99,7 +99,7 @@ object XmlDownloader {
       trickCount += 1
       if (trickCount > 3) throw new Exception("Can't fetch URL: " + requestUrl)
 
-      val timeout = math.abs(random.nextInt()) % 1000
+      val timeout = math.abs(random.nextInt()) % 800
       println("--> Sleep for " + timeout + "ms. Trick count: " + trickCount)
       Thread.sleep(timeout)
 
